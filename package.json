@@ -1,7 +1,7 @@
 {
   "name": "cc-wf-studio",
   "displayName": "Claude Code Workflow Studio",
-  "description": "Visual workflow editor for Claude Code Slash Commands, Sub Agents, Agent Skills, and MCP Tools",
+  "description": "Visual workflow editor for Claude Code and CodeBuddy - Slash Commands, Sub Agents, Agent Skills, and MCP Tools",
   "version": "3.14.3",
   "publisher": "breaking-brake",
   "icon": "resources/icon.png",
@@ -15,6 +15,7 @@
     "claude",
     "claude code",
     "claudecode",
+    "codebuddy",
     "code",
     "workflow",
     "flow",
@@ -65,6 +66,15 @@
     "configuration": {
       "title": "Claude Code Workflow Studio",
       "properties": {
+        "cc-wf-studio.ai.backend": {
+          "type": "string",
+          "enum": [
+            "claude-code",
+            "codebuddy"
+          ],
+          "default": "claude-code",
+          "description": "AI backend to use for workflow generation and refinement. Choose 'claude-code' for Anthropic's Claude Code or 'codebuddy' for Tencent's CodeBuddy."
+        },
         "cc-wf-studio.ai.schemaFormat": {
           "type": "string",
           "enum": [
