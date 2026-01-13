@@ -99,13 +99,20 @@ Iteratively improve your workflows through conversational AI. Instead of generat
 
 ### Prerequisites
 
-- **Claude Code CLI** must be installed and accessible in your PATH
-- Install from: https://claude.com/claude-code
+- **Claude Code CLI** or **CodeBuddy CLI** must be installed and accessible in your PATH
+- Claude Code CLI: https://claude.com/claude-code
+- CodeBuddy CLI: Follow CodeBuddy's official installation guide
 
 To verify installation:
 ```bash
+# For Claude Code CLI
 claude --version
+
+# For CodeBuddy CLI
+codebuddy --version
 ```
+
+**Note**: The extension automatically detects which CLI is available and uses it accordingly. If both are installed, Claude Code CLI takes precedence. See [CodeBuddy Integration](docs/codebuddy-integration.md) for detailed setup.
 
 ### How to Use
 
@@ -193,7 +200,7 @@ Change the AskUserQuestion node to have 3 options instead of 2: High, Medium, Lo
 
 | Error Code | Meaning | Solution |
 |------------|---------|----------|
-| `COMMAND_NOT_FOUND` | Claude Code CLI not installed | Install Claude Code CLI |
+| `COMMAND_NOT_FOUND` | Claude Code CLI or CodeBuddy CLI not installed | Install Claude Code CLI or CodeBuddy CLI |
 | `TIMEOUT` | Request exceeded configured timeout | Simplify request, increase timeout setting, or try again |
 | `PARSE_ERROR` | AI output couldn't be parsed | Rephrase request and retry |
 | `VALIDATION_ERROR` | Workflow exceeds limits (50 nodes max) | Remove nodes or reduce complexity |
