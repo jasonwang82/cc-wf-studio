@@ -12,11 +12,11 @@
 </p>
 
 <p align="center">
-  <strong>Accelerate Claude Code automation with a visual workflow editor</strong>
+  <strong>Accelerate AI-powered workflow automation with a visual editor</strong>
 </p>
 
 <p align="center">
-  Design complex AI agent workflows intuitively with drag-and-drop. Build Sub-Agent orchestrations and conditional branching without writing code, then export directly to <code>.claude</code> format for immediate execution.
+  Design complex AI agent workflows intuitively with drag-and-drop. Build Sub-Agent orchestrations and conditional branching without writing code, then export directly to <code>.claude</code> format for immediate execution with Claude Code or CodeBuddy.
 </p>
 
 <!-- Hero image placeholder - recommended size: 1600x900px or 16:9 aspect ratio -->
@@ -97,14 +97,39 @@ All operations run locally within VSCode. **Note:** MCP Tool nodes may require n
 
 Iteratively improve your workflows through conversational AI. Instead of generating workflows from scratch once, you can continuously refine them by asking for changes, adding features, or adjusting logic - all in natural language. The AI maintains conversation history and applies your feedback incrementally.
 
+### Supported AI Backends
+
+This extension supports multiple AI coding assistants:
+
+- **Claude Code** (default) - Anthropic's official CLI tool for building AI-powered workflows
+  - Install from: https://claude.com/claude-code
+  - Command: `claude`
+
+- **CodeBuddy** - Tencent's AI assistant for terminal-based coding workflows
+  - Install with: `npm install -g @tencent-ai/codebuddy-code`
+  - Command: `cbc` or `codebuddy`
+  - Documentation: https://cnb.cool/codebuddy/codebuddy-code
+
+**Switching Backends:**
+1. Open VSCode Settings (`Ctrl+,` / `Cmd+,`)
+2. Search for "Claude Code Workflow Studio"
+3. Find "AI Backend" setting
+4. Choose between "Claude Code" or "CodeBuddy"
+
 ### Prerequisites
 
-- **Claude Code CLI** must be installed and accessible in your PATH
-- Install from: https://claude.com/claude-code
+- **AI CLI** must be installed and accessible in your PATH
+- Choose one of the supported backends above
 
 To verify installation:
 ```bash
+# For Claude Code:
 claude --version
+
+# For CodeBuddy:
+cbc --version
+# or
+codebuddy --version
 ```
 
 ### How to Use
@@ -193,7 +218,7 @@ Change the AskUserQuestion node to have 3 options instead of 2: High, Medium, Lo
 
 | Error Code | Meaning | Solution |
 |------------|---------|----------|
-| `COMMAND_NOT_FOUND` | Claude Code CLI not installed | Install Claude Code CLI |
+| `COMMAND_NOT_FOUND` | AI CLI not installed | Install Claude Code or CodeBuddy CLI (see Prerequisites) |
 | `TIMEOUT` | Request exceeded configured timeout | Simplify request, increase timeout setting, or try again |
 | `PARSE_ERROR` | AI output couldn't be parsed | Rephrase request and retry |
 | `VALIDATION_ERROR` | Workflow exceeds limits (50 nodes max) | Remove nodes or reduce complexity |
@@ -204,7 +229,7 @@ Change the AskUserQuestion node to have 3 options instead of 2: High, Medium, Lo
 - AI processing timeout (default 90 seconds, configurable via UI selector: 30s-5min)
 - Request limited to 2000 characters
 - Conversation history stored only during active session
-- Requires active Claude Code CLI installation
+- Requires active AI CLI installation (Claude Code or CodeBuddy)
 
 ## Getting Started
 
@@ -399,6 +424,12 @@ Generates ready-to-use files:
 **Q: What is Claude Code?**
 A: Claude Code is Anthropic's official CLI tool for building AI-powered workflows. This extension makes it easier to create and manage those workflows visually.
 
+**Q: What is CodeBuddy?**
+A: CodeBuddy is Tencent's AI assistant that provides similar functionality to Claude Code. This extension supports both backends, allowing you to choose your preferred AI assistant.
+
+**Q: How do I switch between Claude Code and CodeBuddy?**
+A: Open VSCode Settings, search for "Claude Code Workflow Studio", and change the "AI Backend" setting to either "claude-code" (default) or "codebuddy".
+
 **Q: Do I need programming experience?**
 A: No! The visual editor is designed for anyone. Simply drag, drop, and configure nodes through the UI.
 
@@ -434,6 +465,9 @@ A: MCP servers are configured in Claude Code settings, not in this extension. Yo
 
 **Q: What happens if an MCP server is not running?**
 A: The visual editor will detect unavailable MCP servers when loading the tool list and display a validation warning on the MCP node. The workflow can still be saved and exported, but execution will fail if the server is not available at runtime. Make sure all required MCP servers are running before executing exported workflows.
+
+**Q: Are Claude Code and CodeBuddy 100% compatible?**
+A: Both backends use similar CLI interfaces, but there may be minor differences in behavior or available features. The extension abstracts these differences where possible. If you experience issues with one backend, try the other or report the issue on GitHub.
 
 ## Troubleshooting
 

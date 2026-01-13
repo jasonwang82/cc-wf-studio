@@ -6,16 +6,34 @@
  *
  * Updated to use nano-spawn for cross-platform compatibility (Windows/Unix)
  * See: Issue #79 - Windows environment compatibility
+ *
+ * Updated to support multiple AI backends (Claude Code, CodeBuddy)
+ * See: AI CLI Router service for backend abstraction
  */
 
 import type { ChildProcess } from 'node:child_process';
 import nanoSpawn from 'nano-spawn';
 import type { ClaudeModel } from '../../shared/types/messages';
 import { log } from '../extension';
-import { clearClaudeCliPathCache, getClaudeSpawnCommand } from './claude-cli-path';
+import {
+  getAISpawnCommand,
+  getBackendDisplayName,
+  getBackendInstallationInstructions,
+} from './ai-cli-router';
+import { clearClaudeCliPathCache } from './claude-cli-path';
+import { clearCodeBuddyCliPathCache } from './codebuddy-cli-path';
 
 // Re-export for external use
 export { clearClaudeCliPathCache };
+
+/**
+ * Clear all AI CLI path caches
+ * Useful for testing or when user installs a CLI during session
+ */
+export function clearAICliPathCache(): void {
+  clearClaudeCliPathCache();
+  clearCodeBuddyCliPathCache();
+}
 
 /**
  * nano-spawn type definitions (manually defined for compatibility)
@@ -85,9 +103,10 @@ function getCliModelName(model: ClaudeModel): string {
 }
 
 /**
- * Execute Claude Code CLI with a prompt and return the output
+ * Execute AI CLI with a prompt and return the output
+ * Supports both Claude Code and CodeBuddy backends
  *
- * @param prompt - The prompt to send to Claude Code CLI
+ * @param prompt - The prompt to send to AI CLI
  * @param timeoutMs - Timeout in milliseconds (default: 60000)
  * @param requestId - Optional request ID for cancellation support
  * @param workingDirectory - Working directory for CLI execution (defaults to current directory)
@@ -107,15 +126,6 @@ export async function executeClaudeCodeCLI(
 
   const modelName = getCliModelName(model);
 
-  log('INFO', 'Starting Claude Code CLI execution', {
-    promptLength: prompt.length,
-    timeoutMs,
-    model,
-    modelName,
-    allowedTools,
-    cwd: workingDirectory ?? process.cwd(),
-  });
-
   try {
     // Build CLI arguments
     const args = ['-p', '-', '--model', modelName];
@@ -128,10 +138,21 @@ export async function executeClaudeCodeCLI(
       args.push('--allowed-tools', allowedTools.join(','));
     }
 
-    // Spawn Claude Code CLI process using nano-spawn (cross-platform compatible)
+    // Get AI spawn command based on configured backend
+    const spawnCmd = await getAISpawnCommand(args);
+
+    log('INFO', 'Starting AI CLI execution', {
+      backend: spawnCmd.backend,
+      promptLength: prompt.length,
+      timeoutMs,
+      model,
+      modelName,
+      allowedTools,
+      cwd: workingDirectory ?? process.cwd(),
+    });
+
+    // Spawn AI CLI process using nano-spawn (cross-platform compatible)
     // Use stdin for prompt instead of -p argument to avoid Windows command line length limits
-    // Use claude directly if available, otherwise fall back to npx
-    const spawnCmd = await getClaudeSpawnCommand(args);
     const subprocess = spawn(spawnCmd.command, spawnCmd.args, {
       cwd: workingDirectory,
       timeout: timeoutMs,
@@ -158,7 +179,8 @@ export async function executeClaudeCodeCLI(
     const executionTimeMs = Date.now() - startTime;
 
     // Success - return stdout
-    log('INFO', 'Claude Code CLI execution succeeded', {
+    log('INFO', 'AI CLI execution succeeded', {
+      backend: spawnCmd.backend,
       executionTimeMs,
       outputLength: result.stdout.length,
     });
@@ -178,7 +200,7 @@ export async function executeClaudeCodeCLI(
     const executionTimeMs = Date.now() - startTime;
 
     // Log complete error object for debugging
-    log('ERROR', 'Claude Code CLI error caught', {
+    log('ERROR', 'AI CLI error caught', {
       errorType: typeof error,
       errorConstructor: error?.constructor?.name,
       errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
@@ -195,7 +217,7 @@ export async function executeClaudeCodeCLI(
         (error.isTerminated && error.signalName === 'SIGTERM') || error.exitCode === 143;
 
       if (isTimeout) {
-        log('WARN', 'Claude Code CLI execution timed out', {
+        log('WARN', 'AI CLI execution timed out', {
           timeoutMs,
           executionTimeMs,
           exitCode: error.exitCode,
@@ -216,7 +238,13 @@ export async function executeClaudeCodeCLI(
 
       // Command not found (ENOENT)
       if (error.code === 'ENOENT') {
-        log('ERROR', 'Claude Code CLI not found', {
+        // Get backend-specific error message
+        const spawnCmd = await getAISpawnCommand([]);
+        const backendName = getBackendDisplayName(spawnCmd.backend);
+        const installInstructions = getBackendInstallationInstructions(spawnCmd.backend);
+
+        log('ERROR', 'AI CLI not found', {
+          backend: spawnCmd.backend,
           errorCode: error.code,
           errorMessage: error.message,
           executionTimeMs,
@@ -226,15 +254,15 @@ export async function executeClaudeCodeCLI(
           success: false,
           error: {
             code: 'COMMAND_NOT_FOUND',
-            message: 'Cannot connect to Claude Code - please ensure it is installed and running',
-            details: error.message,
+            message: `Cannot connect to ${backendName} - please ensure it is installed and running`,
+            details: `${error.message}\n\n${installInstructions}`,
           },
           executionTimeMs,
         };
       }
 
       // Non-zero exit code
-      log('ERROR', 'Claude Code CLI execution failed', {
+      log('ERROR', 'AI CLI execution failed', {
         exitCode: error.exitCode,
         executionTimeMs,
         stderr: error.stderr?.substring(0, 200), // Log first 200 chars of stderr
@@ -252,7 +280,7 @@ export async function executeClaudeCodeCLI(
     }
 
     // Unknown error type
-    log('ERROR', 'Unexpected error during Claude Code CLI execution', {
+    log('ERROR', 'Unexpected error during AI CLI execution', {
       errorMessage: error instanceof Error ? error.message : String(error),
       executionTimeMs,
     });
@@ -441,12 +469,13 @@ export type StreamingProgressCallback = (
 ) => void;
 
 /**
- * Execute Claude Code CLI with streaming output
+ * Execute AI CLI with streaming output
+ * Supports both Claude Code and CodeBuddy backends
  *
- * Uses --output-format stream-json to receive real-time output from Claude Code CLI.
+ * Uses --output-format stream-json to receive real-time output from AI CLI.
  * The onProgress callback is invoked for each text chunk received.
  *
- * @param prompt - The prompt to send to Claude Code CLI
+ * @param prompt - The prompt to send to AI CLI
  * @param onProgress - Callback invoked with each text chunk and accumulated text
  * @param timeoutMs - Timeout in milliseconds (default: 60000)
  * @param requestId - Optional request ID for cancellation support
@@ -472,16 +501,6 @@ export async function executeClaudeCodeCLIStreaming(
 
   const modelName = getCliModelName(model);
 
-  log('INFO', 'Starting Claude Code CLI streaming execution', {
-    promptLength: prompt.length,
-    timeoutMs,
-    model,
-    modelName,
-    allowedTools,
-    resumeSessionId,
-    cwd: workingDirectory ?? process.cwd(),
-  });
-
   try {
     // Build CLI arguments
     const args = ['-p', '-', '--output-format', 'stream-json', '--verbose', '--model', modelName];
@@ -489,7 +508,7 @@ export async function executeClaudeCodeCLIStreaming(
     // Add --resume flag for session continuation
     if (resumeSessionId) {
       args.push('--resume', resumeSessionId);
-      log('INFO', 'Resuming Claude Code CLI session', { sessionId: resumeSessionId });
+      log('INFO', 'Resuming AI CLI session', { sessionId: resumeSessionId });
     }
 
     // Add --tools and --allowed-tools flags if provided
@@ -500,10 +519,22 @@ export async function executeClaudeCodeCLIStreaming(
       args.push('--allowed-tools', allowedTools.join(','));
     }
 
-    // Spawn Claude Code CLI with streaming output format
+    // Get AI spawn command based on configured backend
+    const spawnCmd = await getAISpawnCommand(args);
+
+    log('INFO', 'Starting AI CLI streaming execution', {
+      backend: spawnCmd.backend,
+      promptLength: prompt.length,
+      timeoutMs,
+      model,
+      modelName,
+      allowedTools,
+      resumeSessionId,
+      cwd: workingDirectory ?? process.cwd(),
+    });
+
+    // Spawn AI CLI with streaming output format
     // Note: --verbose is required when using --output-format=stream-json with -p (print mode)
-    // Use claude directly if available, otherwise fall back to npx
-    const spawnCmd = await getClaudeSpawnCommand(args);
     const subprocess = spawn(spawnCmd.command, spawnCmd.args, {
       cwd: workingDirectory,
       timeout: timeoutMs,
